@@ -8,7 +8,8 @@ permissions:
 jobs:
   ci:
     name: '${{ matrix.os.name}} | Java ${{ matrix.java.version}}'
-    if: ${{ github.repository == 'spring-projects/spring-boot' || github.repository == 'spring-projects/spring-boot-commercial' }}
+    if: ${{ github.repository == 'spring-projects/spring-boot' || 
+      github.repository == 'spring-projects/spring-boot-commercial' }}
     runs-on: ${{ matrix.os.id }}
     strategy:
       fail-fast: false
@@ -18,6 +19,9 @@ jobs:
             name: Linux
           - id: windows-latest
             name: Windows
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
         java:
           - version: 17
             toolchain: true
@@ -31,7 +35,8 @@ jobs:
             java:
               version: 25
           - os:
-              name: ${{ github.repository == 'spring-projects/spring-boot-commercial' && 'Windows' }}
+              name: ${{ github.repository == 
+                'spring-projects/spring-boot-commercial' && 'Windows' }}
     steps:
       - name: Prepare Windows runner
         if: ${{ runner.os == 'Windows' }}
@@ -45,10 +50,14 @@ jobs:
         id: build
         uses: ./.github/actions/build
         with:
-          commercial-release-repository-url: ${{ vars.COMMERCIAL_RELEASE_REPO_URL }}
-          commercial-repository-password: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
-          commercial-repository-username: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
-          commercial-snapshot-repository-url: ${{ vars.COMMERCIAL_SNAPSHOT_REPO_URL }}
+          commercial-release-repository-url: ${{ 
+            vars.COMMERCIAL_RELEASE_REPO_URL }}
+          commercial-repository-password: ${{ 
+            secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
+          commercial-repository-username: ${{ 
+            secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
+          commercial-snapshot-repository-url: ${{ 
+            vars.COMMERCIAL_SNAPSHOT_REPO_URL }}
           develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
           gradle-cache-read-only: false
           java-early-access: ${{ matrix.java.early-access || 'false' }}
@@ -60,6 +69,7 @@ jobs:
         uses: ./.github/actions/send-notification
         with:
           build-scan-url: ${{ steps.build.outputs.build-scan-url }}
-          run-name: ${{ format('{0} | {1} | Java {2}', github.ref_name, matrix.os.name, matrix.java.version) }}
+          run-name: ${{ format('{0} | {1} | Java {2}', github.ref_name, 
+            matrix.os.name, matrix.java.version) }}
           status: ${{ job.status }}
           webhook-url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
