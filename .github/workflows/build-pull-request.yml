@@ -6,7 +6,7 @@ jobs:
   build:
     name: Build Pull Request
     if: ${{ github.repository == 'spring-projects/spring-boot' }}
-    runs-on: ${{ vars.UBUNTU_MEDIUM || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v5
@@ -22,3 +22,9 @@ jobs:
         with:
           name: build-reports
           path: '**/build/reports/'
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
