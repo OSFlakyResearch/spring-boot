@@ -12,7 +12,7 @@ jobs:
   build-and-stage-release:
     name: Build and Stage Release
     if: ${{ github.repository == 'spring-projects/spring-boot' }}
-    runs-on: ${{ vars.UBUNTU_MEDIUM || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v5
@@ -24,9 +24,11 @@ jobs:
           gradle-cache-read-only: false
           publish: true
       - name: Stage Release
-        uses: spring-io/artifactory-deploy-action@dc1913008c0599f0c4b1fdafb6ff3c502b3565ea # v0.0.2
+        uses: 
+          spring-io/artifactory-deploy-action@dc1913008c0599f0c4b1fdafb6ff3c502b3565ea     # v0.0.2
         with:
-          build-name: ${{ format('spring-boot-{0}', steps.build-and-publish.outputs.version)}}
+          build-name: ${{ format('spring-boot-{0}', 
+            steps.build-and-publish.outputs.version)}}
           folder: 'deployment-repository'
           password: ${{ secrets.ARTIFACTORY_PASSWORD }}
           repository: 'libs-staging-local'
@@ -36,13 +38,21 @@ jobs:
           username: ${{ secrets.ARTIFACTORY_USERNAME }}
     outputs:
       version: ${{ steps.build-and-publish.outputs.version }}
+    strategy:
+      matrix:
+        os: &id001
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
   verify:
     name: Verify
     needs: build-and-stage-release
     uses: ./.github/workflows/verify.yml
     secrets:
-      commercial-repository-password: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
-      commercial-repository-username: ${{ secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
+      commercial-repository-password: ${{ 
+        secrets.COMMERCIAL_ARTIFACTORY_RO_PASSWORD }}
+      commercial-repository-username: ${{ 
+        secrets.COMMERCIAL_ARTIFACTORY_RO_USERNAME }}
       google-chat-webhook-url: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
       opensource-repository-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
       opensource-repository-username: ${{ secrets.ARTIFACTORY_USERNAME }}
@@ -56,7 +66,7 @@ jobs:
     needs:
       - build-and-stage-release
       - verify
-    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v5
@@ -66,27 +76,36 @@ jobs:
           central-token-password: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
           central-token-username: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
           jfrog-cli-config-token: ${{ secrets.JF_ARTIFACTORY_SPRING }}
-          spring-boot-version: ${{ needs.build-and-stage-release.outputs.version }}
+          spring-boot-version: ${{ needs.build-and-stage-release.outputs.version
+            }}
+    strategy:
+      matrix:
+        os: *id001
   promote-release:
     name: Promote Release
     needs:
       - build-and-stage-release
       - sync-to-maven-central
-    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Set up JFrog CLI
         uses: jfrog/setup-jfrog-cli@e5d3afdd1d75e4aa14a4f217cca93a2a9b5b846d # v4.8.0
         env:
           JF_ENV_SPRING: ${{ secrets.JF_ARTIFACTORY_SPRING }}
       - name: Promote build
-        run: jfrog rt build-promote ${{ format('spring-boot-{0}', needs.build-and-stage-release.outputs.version)}} ${{ github.run_number }} libs-milestone-local
+        run: jfrog rt build-promote ${{ format('spring-boot-{0}', 
+          needs.build-and-stage-release.outputs.version)}} ${{ github.run_number
+          }} libs-milestone-local
+    strategy:
+      matrix:
+        os: *id001
   publish-gradle-plugin:
     name: Publish Gradle Plugin
     if: ${{ !vars.COMMERCIAL }}
     needs:
       - build-and-stage-release
       - sync-to-maven-central
-    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v5
@@ -94,9 +113,13 @@ jobs:
         uses: ./.github/actions/publish-gradle-plugin
         with:
           gradle-plugin-publish-key: ${{ secrets.GRADLE_PLUGIN_PUBLISH_KEY }}
-          gradle-plugin-publish-secret: ${{ secrets.GRADLE_PLUGIN_PUBLISH_SECRET }}
+          gradle-plugin-publish-secret: ${{ secrets.GRADLE_PLUGIN_PUBLISH_SECRET
+            }}
           jfrog-cli-config-token: ${{ secrets.JF_ARTIFACTORY_SPRING }}
           plugin-version: ${{ needs.build-and-stage-release.outputs.version }}
+    strategy:
+      matrix:
+        os: *id001
   trigger-docs-build:
     name: Trigger Docs Build
     needs:
@@ -104,12 +127,17 @@ jobs:
       - sync-to-maven-central
     permissions:
       actions: write
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Run Deploy Docs Workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run deploy-docs.yml --repo ${{ github.repository }} -r docs-build -f build-refname=${{ github.ref_name }} -f build-version=${{ needs.build-and-stage-release.outputs.version }}
+        run: gh workflow run deploy-docs.yml --repo ${{ github.repository }} -r 
+          docs-build -f build-refname=${{ github.ref_name }} -f 
+          build-version=${{ needs.build-and-stage-release.outputs.version }}
+    strategy:
+      matrix:
+        os: *id001
   create-github-release:
     name: Create GitHub Release
     needs:
@@ -117,7 +145,7 @@ jobs:
       - promote-release
       - publish-gradle-plugin
       - trigger-docs-build
-    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check Out Code
         uses: actions/checkout@v5
@@ -128,3 +156,6 @@ jobs:
           milestone: ${{ needs.build-and-stage-release.outputs.version }}
           pre-release: true
           token: ${{ secrets.GH_ACTIONS_REPO_TOKEN }}
+    strategy:
+      matrix:
+        os: *id001
